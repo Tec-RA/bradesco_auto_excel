@@ -282,12 +282,12 @@ EXCLUIR_IDX26 = [
 # =========================
 def carregar_metas():
     padrao = {
-        "meta_encerramento": 627,
+        "meta_encerramento": 664,
         "meta_sem_onus_perc": 55,
-        "meta_acordo": 38,
+        "meta_acordo": 147,
         "meta_ticket_geral": 7500,
         "meta_ticket_acordo": 2500,
-        "meta_ticket_liquidacao": 11663
+        "meta_ticket_liquidacao": 10842
     }
 
     try:
