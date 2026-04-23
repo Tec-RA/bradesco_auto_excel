@@ -23,8 +23,8 @@ st.set_page_config(page_title="Métricas Bradesco", layout="wide")
 # =========================
 # LINKS
 # =========================
-REL_ENCERRADO = "https://reports.elawio.com.br/Relatorio/Filtros?idRelatorio=45243"
-REL_PENDENTE = "https://reports.elawio.com.br/Relatorio/Filtros?idRelatorio=45245"
+REL_ENCERRADO = "https://reports.elaw.com.br/Relatorio/Filtros?idRelatorio=45243"
+REL_PENDENTE = "https://reports.elaw.com.br/Relatorio/Filtros?idRelatorio=45245"
 
 LOGIN_URL = "https://ribeiroandrade.elawio.com.br/login"
 LOGIN_EMAIL = "Mateusbradesco"
@@ -640,13 +640,11 @@ def _entrar_modulo_relatorios(page):
 
     reports_page = None
 
-    # caso abra em nova aba/janela
     try:
         with page.expect_popup(timeout=20000) as popup_info:
             link.click(force=True)
         reports_page = popup_info.value
     except Exception:
-        # fallback: pode abrir na mesma aba
         link.click(force=True)
         page.wait_for_timeout(5000)
 
@@ -662,7 +660,7 @@ def _entrar_modulo_relatorios(page):
 
     url_final = reports_page.url.lower()
 
-    if "reports.elawio.com.br/home/index" not in url_final and "reports.elawio.com.br" not in url_final:
+    if "reports.elaw.com.br/home/index" not in url_final and "reports.elaw.com.br" not in url_final:
         raise Exception(
             "O clique em 'Módulo de Relatórios' não concluiu a abertura do Reports. "
             f"URL final: {reports_page.url}"
