@@ -26,7 +26,7 @@ st.set_page_config(page_title="Métricas Bradesco", layout="wide")
 REL_ENCERRADO = "https://reports.elawio.com.br/Relatorio/Filtros?idRelatorio=45243"
 REL_PENDENTE = "https://reports.elawio.com.br/Relatorio/Filtros?idRelatorio=45245"
 
-LOGIN_URL = "https://ribeiroandrade.elawio.com.br/"
+LOGIN_URL = "https://ribeiroandrade.elawio.com.br/login"
 LOGIN_EMAIL = "Mateusbradesco"
 LOGIN_SENHA = "prazo"
 
@@ -597,7 +597,7 @@ def _browser_context(pw):
 # LOGIN / NAVEGAÇÃO
 # =========================
 def _login(page):
-    page.goto(LOGIN_URL, wait_until="domcontentloaded")
+    page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=90000)
 
     page.locator("input[type='text'], input[placeholder*='Email'], input[name='Email']").first.fill(LOGIN_EMAIL)
     page.locator("input[type='password'], input[placeholder*='Senha'], input[name='Senha']").first.fill(LOGIN_SENHA)
@@ -606,48 +606,67 @@ def _login(page):
     entrar.click()
 
     page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(3000)
+
+    url_atual = page.url.lower()
+    if "/home/index" not in url_atual:
+        raise Exception(f"Login não concluiu corretamente. URL após login: {page.url}")
 
 def _entrar_modulo_relatorios(page):
     context = page.context
-    qtd_paginas_antes = len(context.pages)
+    paginas_antes = list(context.pages)
 
     candidatos = [
-        "xpath=//a[contains(normalize-space(.), 'Módulo de Relatórios')]",
-        "xpath=//span[contains(normalize-space(.), 'Módulo de Relatórios')]",
-        "text='Módulo de Relatórios'",
+        "xpath=/html/body/div[7]/div[1]/div/ul/li[5]/a",
+        "xpath=//a[.//span[contains(normalize-space(.), 'Módulo de Relatórios')]]",
+        "xpath=//li[.//span[contains(normalize-space(.), 'Módulo de Relatórios')]]/a",
     ]
 
     ultimo_erro = None
-    clicou = False
+    link = None
 
     for sel in candidatos:
         try:
             loc = page.locator(sel).first
             loc.wait_for(state="visible", timeout=20000)
             loc.scroll_into_view_if_needed()
-            loc.click(force=True)
-            clicou = True
+            link = loc
             break
         except Exception as e:
             ultimo_erro = e
 
-    if not clicou:
-        raise ultimo_erro
+    if link is None:
+        raise Exception(f"Não encontrei o link 'Módulo de Relatórios'. Último erro: {ultimo_erro}")
 
-    page.wait_for_timeout(5000)
+    reports_page = None
 
-    if len(context.pages) > qtd_paginas_antes:
-        reports_page = context.pages[-1]
-    else:
-        reports_page = page
+    # caso abra em nova aba/janela
+    try:
+        with page.expect_popup(timeout=20000) as popup_info:
+            link.click(force=True)
+        reports_page = popup_info.value
+    except Exception:
+        # fallback: pode abrir na mesma aba
+        link.click(force=True)
+        page.wait_for_timeout(5000)
 
-    reports_page.set_default_timeout(60000)
-    reports_page.set_default_navigation_timeout(90000)
+        novas_paginas = [p for p in context.pages if p not in paginas_antes]
+        if novas_paginas:
+            reports_page = novas_paginas[-1]
+        else:
+            reports_page = page
 
     reports_page.wait_for_load_state("domcontentloaded")
     reports_page.wait_for_load_state("networkidle")
     reports_page.wait_for_timeout(3000)
+
+    url_final = reports_page.url.lower()
+
+    if "reports.elawio.com.br/home/index" not in url_final and "reports.elawio.com.br" not in url_final:
+        raise Exception(
+            "O clique em 'Módulo de Relatórios' não concluiu a abertura do Reports. "
+            f"URL final: {reports_page.url}"
+        )
 
     return reports_page
 
