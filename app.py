@@ -651,21 +651,65 @@ def _entrar_modulo_relatorios(page):
 
     return reports_page
 
-def _get_scope_with_form0(page):
+def _get_scope_relatorio(page, timeout_ms=45000):
+    seletores_prontos = [
+        "#form0",
+        "xpath=//form[@id='form0']",
+        "#excel",
+        "xpath=//button[@id='excel']",
+        "xpath=//button[contains(normalize-space(.), 'Gerar Excel')]",
+    ]
+
+    tentativas = max(1, timeout_ms // 1000)
+
+    for _ in range(tentativas):
+        scopes = [page] + list(page.frames)
+
+        for scope in scopes:
+            for sel in seletores_prontos:
+                try:
+                    loc = scope.locator(sel)
+                    if loc.count() > 0:
+                        loc.first.wait_for(state="attached", timeout=1000)
+                        return scope
+                except Exception:
+                    pass
+
+        page.wait_for_timeout(1000)
+
+    detalhes = [f"URL atual: {page.url}"]
+
     try:
-        if page.locator('xpath=//*[@id="form0"]').count() > 0:
-            return page
+        detalhes.append(f"Título: {page.title()}")
     except Exception:
         pass
 
-    for fr in page.frames:
+    for i, fr in enumerate(page.frames):
         try:
-            if fr.locator('xpath=//*[@id="form0"]').count() > 0:
-                return fr
+            detalhes.append(f"Frame {i}: {fr.url}")
         except Exception:
             pass
 
-    raise Exception("Não encontrei o formulário form0 nem na página principal nem em frames.")
+    raise Exception(
+        "Não encontrei a área do relatório. "
+        "Procurei por #form0, #excel e botão 'Gerar Excel'. "
+        + " | ".join(detalhes)
+    )
+
+def _abrir_relatorio(page, url):
+    page.goto(url, wait_until="domcontentloaded", timeout=90000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(3000)
+
+    # Se caiu de novo na tela de login, autentica e reabre o relatório
+    try:
+        if page.locator("input[type='password'], input[placeholder*='Senha'], input[name='Senha']").count() > 0:
+            _login(page)
+            page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(3000)
+    except Exception:
+        pass
 
 # =========================
 # AÇÕES DE FORMULÁRIO
@@ -750,11 +794,8 @@ def _baixar_relatorio_encerrado_excel(page, destino_arquivo=METRICAS_XLSX):
     data_inicial, data_final = periodo_mes_corrente_str()
     periodo = f"{data_inicial} - {data_final}"
 
-    page.goto(REL_ENCERRADO, wait_until="domcontentloaded", timeout=90000)
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(5000)
-
-    scope = _get_scope_with_form0(page)
+    _abrir_relatorio(page, REL_ENCERRADO)
+    scope = _get_scope_relatorio(page)
 
     X_STATUS_BTN = '/html/body/div[2]/div/div/form/div/div[2]/table/tbody/tr[1]/td[2]/div/button'
     X_ESCRITORIO_BTN = '/html/body/div[2]/div/div/form/div/div[2]/table/tbody/tr[4]/td[2]/div/button'
@@ -798,11 +839,8 @@ def _baixar_relatorio_pendente_excel(page, destino_arquivo=PREVISAO_XLSX):
     data_inicial, data_final = periodo_mes_corrente_str()
     periodo = f"{data_inicial} - {data_final}"
 
-    page.goto(REL_PENDENTE, wait_until="domcontentloaded", timeout=90000)
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(5000)
-
-    scope = _get_scope_with_form0(page)
+    _abrir_relatorio(page, REL_PENDENTE)
+    scope = _get_scope_relatorio(page)
 
     X_STATUS_BTN = '/html/body/div[2]/div/div/form/div/div[2]/table/tbody/tr[1]/td[2]/div/button'
     X_TIPO_COMPROMISSO_BTN = '/html/body/div[2]/div/div/form/div/div[2]/table/tbody/tr[2]/td[2]/div/button'
